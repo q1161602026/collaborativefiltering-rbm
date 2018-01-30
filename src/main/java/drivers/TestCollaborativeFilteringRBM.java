@@ -36,8 +36,7 @@ public class TestCollaborativeFilteringRBM {
         rbmCF.loadRatings("./data/" + "u.data");
         rbmCF.fit(options);
         
-        System.out.println("Max prediction = " + rbmCF.predict("166", "346", PredictionType.MAX));               
-        System.out.println("Mean prediction = " + rbmCF.predict("166", "346", PredictionType.MEAN));               
+        System.out.println("Mean prediction = " + rbmCF.predict("166", "346", PredictionType.MEAN));
        
     }
     
