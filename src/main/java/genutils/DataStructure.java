@@ -8,6 +8,7 @@ import java.util.HashMap;
  * Created by mjh on 2018/1/30.
  */
 public class DataStructure {
+
     public HashMap<Integer, DoubleMatrix> Wijk;
     public DoubleMatrix hidden_b;
     public HashMap<Integer, DoubleMatrix> visible_b;

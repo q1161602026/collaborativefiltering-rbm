@@ -8,6 +8,7 @@ package drivers;
 
 import deeplearning.tools.rbmforcollaborativefiltering.CollaborativeFilteringRBM;
 import deeplearning.tools.rbmforcollaborativefiltering.PredictionType;
+import genutils.HyperParameter;
 import genutils.RbmOptions;
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -23,18 +24,19 @@ public class TestCollaborativeFilteringRBM {
     public static void main(String[] args) throws IOException {
         
         
-        _logger.info("Loading data..");        
-               
-        RbmOptions options = new RbmOptions();
-        options.maxepoch = 10;
-        options.avglast = 5;
-        options.numhid = 100;
-        options.debug = false;
+        _logger.info("Loading data..");
+        HyperParameter hp = new HyperParameter(0.1, 0.2, 0.1, 0.002, 0.5, 0.9, 20.0);
+
+        RbmOptions ro = new RbmOptions();
+        ro.maxepoch = 10;
+        ro.avglast = 5;
+        ro.numhid = 100;
+        ro.debug = false;
         
-        //CollaborativeFilteringLayer fit = CollaborativeFilteringRBM.fit(data, options);
-        CollaborativeFilteringRBM rbmCF = new CollaborativeFilteringRBM();
+        //CollaborativeFilteringLayer fit = CollaborativeFilteringRBM.fit(data, ro);
+        CollaborativeFilteringRBM rbmCF = new CollaborativeFilteringRBM(hp,ro);
         rbmCF.loadRatings("./data/" + "u.data");
-        rbmCF.fit(options);
+        rbmCF.fit(ro);
         
         System.out.println("Mean prediction = " + rbmCF.predict("166", "346", PredictionType.MEAN));
        

@@ -28,56 +28,32 @@ public class CollaborativeFilteringRBM {
    
     private static final java.util.logging.Logger _logger = Logger.getLogger(CollaborativeFilteringRBM.class.getName());
 
-    // constants related to the training procedure
-    private double lr_w;   // learning rate for weights
-    private double lr_visible_b;  // learning rate for biases for visible units
-    private double lr_hidden_b;  // learning rate for biases for hidden units
-    //double reg_w = 0.0002;
-    private double reg_w;
-    private double momentumInitial;
-    private double momentumFinal;
-    private double modifier;
+    private RbmOptions ro;
 
-    private DataStructure ds = new DataStructure();
+    private HyperParameter hp;
 
-    public CollaborativeFilteringRBM() {
-        this(0.1, 0.2, 0.1, 0.002, 0.5, 0.9, 20.0);
+    private DataStructure ds;
+
+    public CollaborativeFilteringRBM(HyperParameter hp, RbmOptions ro) {
+        this.hp = hp;
+        this.ro = ro;
+
+        ds = new DataStructure();
     }
 
-    public CollaborativeFilteringRBM(double lr_w, double lr_visible_b, double lr_hidden_b,
-                                     double reg_w, double momentumInitial,
-                                     double momentumFinal, double modifier) {
-        this.lr_w = lr_w;
-        this.lr_visible_b = lr_visible_b;
-        this.lr_hidden_b = lr_hidden_b;
-        this.reg_w = reg_w;
-        this.momentumInitial = momentumInitial;
-        this.momentumFinal = momentumFinal;
-        this.modifier = modifier;
-    }
-
-    private void initialize() {
-
-    }
-    /**
-     * Fits a separate RBM for each user, with 'tied' weights and biases
-     * for the hidden and visible units.
-     */
-    public void fit(RbmOptions rbmOptions) throws IOException {
-
-        int startAveraging = rbmOptions.maxepoch - rbmOptions.avglast;             
+    private void initialize() throws IOException {
 
         ds.user_num = ds.matrix.getRows(); //    number of users
         ds.item_num = ds.matrix.getColumns();//  number of item
-        
+
         _logger.info("got ratings from " + ds.user_num + " users for " + ds.item_num + " movies..");
         //Create batches
-        //Batches batches = Utils.createBatches(user_num, rbmOptions.batchsize);
+        //Batches batches = Utils.createBatches(user_num, ro.batchsize);
         ds.num_visible = ds.item_num;
-        ds.num_hidden = rbmOptions.numhid;
- 
+        ds.num_hidden = ro.numhid;
+
         //initialize visible-hidden symmetric weights
-        
+
         //1a. visual to hidden connection weights (1 per rating)
         ds.Wijk = new HashMap<>(5);
 
@@ -98,13 +74,13 @@ public class CollaborativeFilteringRBM {
 
             ds.pos_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
         }
-        
+
         ds.neg_prods = new HashMap<>(5);
         for(int rating = 1; rating <= 5; rating++) {
 
             ds.neg_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
         }
-        
+
         //2. biases for the hidden units
         ds.hidden_b = DoubleMatrix.zeros(1, ds.num_hidden);
         ds.hidbiasinc = DoubleMatrix.zeros(1, ds.num_hidden);
@@ -116,10 +92,22 @@ public class CollaborativeFilteringRBM {
 
             ds.visible_b.put(rating, DoubleMatrix.zeros(1, ds.num_visible));
             ds.visbiasesInc.put(rating, DoubleMatrix.zeros(1, ds.num_visible));
-        }        
+        }
+
+    }
+    /**
+     * Fits a separate RBM for each user, with 'tied' weights and biases
+     * for the hidden and visible units.
+     */
+    public void fit(RbmOptions ro) throws IOException {
+
+
+        initialize();
+
+        int startAveraging = ro.maxepoch - ro.avglast;
 
         //train for 'maxepoch' epochs
-        for (int epoch = 1; epoch <= rbmOptions.maxepoch; epoch++) {
+        for (int epoch = 1; epoch <= ro.maxepoch; epoch++) {
 
             _logger.info("Starting epoch " + (epoch + 1) + "\n");
             double err_sum = 0;
@@ -136,12 +124,12 @@ public class CollaborativeFilteringRBM {
                 // otherwise the rating is missing
                 DoubleMatrix row = ds.matrix.getRow(visitingSeq.get(r));
                 
-                if(rbmOptions.debug)
+                if(ro.debug)
                     _logger.info("Examining row.." + row.toString());
                 
                 // a row matrix (1 x num_visible) with 1's in the non-zero columns
                 DoubleMatrix indicator = Utils.binaryMe(row);  
-                if(rbmOptions.debug)
+                if(ro.debug)
                     _logger.info("Indicator..." + indicator.toString());
 
                 DoubleMatrix V = Utils.createRowMaskMatrix(row, 5);
@@ -189,16 +177,16 @@ public class CollaborativeFilteringRBM {
                 }
                 
                 
-                if(rbmOptions.debug)
+                if(ro.debug)
                     _logger.info("poshidprobs..." + poshidprobs.toString());
                 
                 //end of positive phase
                 DoubleMatrix poshidstates = poshidprobs.ge(DoubleMatrix.rand(1, ds.num_hidden));
-                if(rbmOptions.debug)
+                if(ro.debug)
                     _logger.info("poshidstates..." + poshidstates.toString());                                                                
                 
                     
-                if(rbmOptions.debug)                
+                if(ro.debug)
                     _logger.info("*** END OF POSITIVE PHASE \n\n\n");    
                 
                 
@@ -260,13 +248,13 @@ public class CollaborativeFilteringRBM {
                         int rating = k + 1;
                         DoubleMatrix wij = ds.Wijk.get(rating);
                         double visible_prob = negdata.get(k, index);
-                        if(rbmOptions.debug)
+                        if(ro.debug)
                             _logger.info("visible prob = " + visible_prob);
                         DoubleMatrix wToHidden = wij.getRow(index);
-                        if(rbmOptions.debug)
+                        if(ro.debug)
                             _logger.info("wToHidden is \n " + wToHidden.toString());
                         DoubleMatrix contributionToHiddenUnits = wToHidden.mul(visible_prob);   
-                        if(rbmOptions.debug)
+                        if(ro.debug)
                             _logger.info("Adding.........." + contributionToHiddenUnits.toString());                        
                                                 
                         neghidprobs.addi(contributionToHiddenUnits);
@@ -274,7 +262,7 @@ public class CollaborativeFilteringRBM {
                 }
                               
                 neghidprobs = Utils.logistic(neghidprobs);
-                if(rbmOptions.debug) {
+                if(ro.debug) {
                     _logger.info("neghidprobs.. " + neghidprobs.toString());
                 }
 
@@ -306,18 +294,18 @@ public class CollaborativeFilteringRBM {
                 //set momentum
                 double momentum = 0.0;
                 if (epoch > startAveraging) {
-                    momentum = momentumFinal;
+                    momentum = hp.momentumFinal;
                 } else {
-                    momentum = momentumInitial;
+                    momentum = hp.momentumInitial;
                 }
             
                 
                 //calculate gradients
-                ds.hidbiasinc = (ds.hidbiasinc.mul(momentum)).add((poshidprobs.sub(neghidprobs)).mul(lr_hidden_b *modifier/ds.user_num));
+                ds.hidbiasinc = (ds.hidbiasinc.mul(momentum)).add((poshidprobs.sub(neghidprobs)).mul(hp.lr_hidden_b * hp.modifier/ds.user_num));
                 for(int rating = 1; rating <=5; rating++ ) {
                     DoubleMatrix inc = ds.visbiasesInc.get(rating);
                     DoubleMatrix temp1 = inc.mul(momentum);
-                    DoubleMatrix temp2 = (V.getRow(rating - 1).sub(negdata.getRow(rating - 1))).mul(lr_visible_b *modifier/ds.user_num);
+                    DoubleMatrix temp2 = (V.getRow(rating - 1).sub(negdata.getRow(rating - 1))).mul(hp.lr_visible_b * hp.modifier/ds.user_num);
                     inc = temp1.add(temp2);
                     ds.visbiasesInc.put(rating, inc);
                 }
@@ -326,8 +314,8 @@ public class CollaborativeFilteringRBM {
                 for(int rating = 1; rating <=5; rating++ ) {
                     DoubleMatrix inc = ds.Wijk_inc.get(rating);
                     DoubleMatrix temp1 = inc.mul(momentum);
-                    DoubleMatrix temp2 = (ds.pos_prods.get(rating).sub(ds.neg_prods.get(rating))).mul(lr_w *modifier/ds.user_num);
-                    DoubleMatrix temp3 = ds.Wijk.get(rating).mul(reg_w);
+                    DoubleMatrix temp2 = (ds.pos_prods.get(rating).sub(ds.neg_prods.get(rating))).mul(hp.lr_w * hp.modifier/ds.user_num);
+                    DoubleMatrix temp3 = ds.Wijk.get(rating).mul(hp.reg_w);
                     inc = temp1.add(temp2).sub(temp3);
                     ds.Wijk_inc.put(rating, inc);
                 }
