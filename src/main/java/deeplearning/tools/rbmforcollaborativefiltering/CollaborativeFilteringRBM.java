@@ -312,7 +312,7 @@ public class CollaborativeFilteringRBM {
         //train for 'epoch' epochs
         for (int epoch = 1; epoch <= ro.epoch; epoch++) {
 
-            _logger.info("Starting epoch " + (epoch + 1) + "\n");
+            _logger.info("Starting epoch " + epoch + "\n");
 
             // randomize the visiting order and then treat
             // each training case separately..

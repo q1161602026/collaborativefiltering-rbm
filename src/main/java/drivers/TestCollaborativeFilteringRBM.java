@@ -26,9 +26,9 @@ public class TestCollaborativeFilteringRBM {
         HyperParameter hp = new HyperParameter(0.1, 0.2, 0.1, 0.002, 0.9, 20.0);
 
         RbmOptions ro = new RbmOptions();
-        ro.cdk = 5;
-        ro.epoch = 10;
-        ro.evaluateEvery = 2;
+        ro.cdk = 9;
+        ro.epoch = 8;
+        ro.evaluateEvery = 1;
         ro.num_hidden = 100;
         ro.debug = false;
 
