@@ -31,23 +31,23 @@ public class CollaborativeFilteringRBM {
     private TempDataStructure tds;
 
 
-
     public CollaborativeFilteringRBM(HyperParameter hp, RbmOptions ro) {
+
         this.hp = hp;
         this.ro = ro;
 
-        ds = new DataStructure();
-        tds = new TempDataStructure();
+        this.ds = new DataStructure();
+        this.tds = new TempDataStructure();
+
     }
 
     private void initialize() throws IOException {
 
-        ds.user_num = ds.matrix.getRows(); //    number of users
-        ds.item_num = ds.matrix.getColumns();//  number of item
+        ds.user_num = ds.matrix.getRows();    //  number of users
+        ds.item_num = ds.matrix.getColumns(); //  number of item
 
         _logger.info("got ratings from " + ds.user_num + " users for " + ds.item_num + " movies..");
-        //Create batches
-        //Batches batches = Utils.createBatches(user_num, ro.batchsize);
+
         ds.num_visible = ds.item_num;
         ds.num_hidden = ro.num_hidden;
 
@@ -55,30 +55,11 @@ public class CollaborativeFilteringRBM {
 
         //1a. visual to hidden connection weights (1 per rating)
         ds.Wijk = new HashMap<>(5);
-
-        for(int rating = 1; rating <= 5; rating++) {
-
-            ds.Wijk.put(rating, DoubleMatrix.randn(ds.num_visible, ds.num_hidden).mul(0.1));
-        }
-
         ds.Wijk_inc = new HashMap<>(5);
-        for(int rating = 1; rating <= 5; rating++) {
-
-            ds.Wijk_inc.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
-        }
 
         //1b. gradients for visual to hidden connection weights (1 per rating)
         ds.pos_prods = new HashMap<>(5);
-        for(int rating = 1; rating <= 5; rating++) {
-
-            ds.pos_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
-        }
-
         ds.neg_prods = new HashMap<>(5);
-        for(int rating = 1; rating <= 5; rating++) {
-
-            ds.neg_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
-        }
 
         //2. biases for the hidden units
         ds.hidden_b = DoubleMatrix.zeros(1, ds.num_hidden);
@@ -87,13 +68,22 @@ public class CollaborativeFilteringRBM {
         //3. biases for the visible units (1 per rating)
         ds.visible_b = new HashMap<>(5);
         ds.visible_b_inc = new HashMap<>(5);
+
         for(int rating = 1; rating <= 5; rating++) {
+
+            ds.Wijk.put(rating, DoubleMatrix.randn(ds.num_visible, ds.num_hidden).mul(0.1));
+            ds.Wijk_inc.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+
+            ds.pos_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+            ds.neg_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
 
             ds.visible_b.put(rating, DoubleMatrix.zeros(1, ds.num_visible));
             ds.visible_b_inc.put(rating, DoubleMatrix.zeros(1, ds.num_visible));
+
         }
 
     }
+
     private boolean prepare(DoubleMatrix matrix, int r) {
 
         tds.row = matrix.getRow(r);
@@ -118,7 +108,7 @@ public class CollaborativeFilteringRBM {
 
     }
 
-    private void positive_phase(DataStructure ds,  TempDataStructure tds) {
+    private void positive_phase(DataStructure ds, TempDataStructure tds) {
         //positive phase
         ds.pos_hid_probs = DoubleMatrix.zeros(1, ds.num_hidden);
 
@@ -150,14 +140,6 @@ public class CollaborativeFilteringRBM {
 
         //take the logistic, to form probabilities for the hidden units
         ds.pos_hid_probs = Utils.logistic(ds.pos_hid_probs);
-
-        // pos_prods = data' * ds.pos_hid_probs
-        for(int rating = 1; rating <= 5; rating++) {
-            DoubleMatrix pos_prod = ds.pos_prods.get(rating);
-            DoubleMatrix vRow = tds.oneHotEncoder.getRow(rating - 1);
-            pos_prod.addi(vRow.transpose().mmul(ds.pos_hid_probs));
-            ds.pos_prods.put(rating, pos_prod);
-        }
 
         if(ro.debug)
             _logger.info("ds.pos_hid_probs..." + ds.pos_hid_probs.toString());
@@ -249,25 +231,39 @@ public class CollaborativeFilteringRBM {
             _logger.info("neg_hid_probs.. " + ds.neg_hid_probs.toString());
         }
 
-        // neg_prods = reconstructEncoder' * neg_hid_probs
-        for(int rating = 1; rating <= 5; rating++) {
-            DoubleMatrix neg_prod = ds.neg_prods.get(rating);
-            DoubleMatrix vRow = tds.reconstructEncoder.getRow(rating - 1);
-            neg_prod.addi(vRow.transpose().mmul(ds.neg_hid_probs));
-            ds.neg_prods.put(rating, neg_prod);
-        }
     }
 
-    private void update_weight(int epoch) {
-        int startAveraging = ro.maxepoch - ro.avglast;
+    private void GibbsSampler(DataStructure ds, TempDataStructure tds, int cdk, boolean trainable) {
+
+        for (int i = 0; i < cdk; i++) {
+
+            positive_phase(ds, tds);
+
+            negative_phase(ds, tds);
+        }
+
+        if (trainable){
+            // pos_prods = data' * ds.pos_hid_probs
+            for(int rating = 1; rating <= 5; rating++) {
+                DoubleMatrix pos_prod = ds.pos_prods.get(rating);
+                DoubleMatrix vRow = tds.oneHotEncoder.getRow(rating - 1);
+                pos_prod.addi(vRow.transpose().mmul(ds.pos_hid_probs));
+                ds.pos_prods.put(rating, pos_prod);
+
+                DoubleMatrix neg_prod = ds.neg_prods.get(rating);
+                DoubleMatrix revRow = tds.reconstructEncoder.getRow(rating - 1);
+                neg_prod.addi(revRow.transpose().mmul(ds.neg_hid_probs));
+                ds.neg_prods.put(rating, neg_prod);
+            }
+        }
+
+    }
+
+    private void update_weight() {
 
         //set momentum_coeff
-        double momentum_coeff;
-        if (epoch > startAveraging) {
-            momentum_coeff = hp.momentum_coefficient_final;
-        } else {
-            momentum_coeff = hp.momentum_coefficient_initial;
-        }
+        double momentum_coeff = hp.momentum_coefficient;
+
 
         //calculate gradients
         ds.hidden_b_inc = (ds.hidden_b_inc.mul(momentum_coeff)).add((ds.pos_hid_probs.sub(ds.neg_hid_probs)).mul(hp.lr_hidden_b * hp.modifier / ds.user_num));
@@ -315,58 +311,44 @@ public class CollaborativeFilteringRBM {
 
         List<Integer> userRandomIndex = Utils.getSequence(0, ds.user_num - 1);
 
-        //train for 'maxepoch' epochs
-        for (int epoch = 1; epoch <= ro.maxepoch; epoch++) {
+        //train for 'epoch' epochs
+        for (int epoch = 1; epoch <= ro.epoch; epoch++) {
 
             _logger.info("Starting epoch " + (epoch + 1) + "\n");
-            double err_sum = 0;
 
             // randomize the visiting order and then treat
             // each training case separately..
             Collections.shuffle(userRandomIndex);
 
-            for (int r = 0; r < userRandomIndex.size(); r++) {
+            for (Integer user : userRandomIndex) {
 
                 // each 'row' is in the form [0 0 5 4 2 0 0 3 ... 0 0 1 2 5],
                 // If the value is > 0, it is the rating for that movie (column)
                 // otherwise the rating is missing
 
-                boolean prepared = prepare(ds.matrix_train, userRandomIndex.get(r));
+                boolean prepared = prepare(ds.matrix_train, user);
 
-                if (!prepared){
+                if (!prepared) {
                     continue;
                 }
 
-                positive_phase(ds, tds);
-
-                negative_phase(ds, tds);
-
-                update_weight(epoch);
+                GibbsSampler(ds, tds, ro.cdk, true);
 
                 //the end for each user
-                DoubleMatrix error = tds.oneHotEncoder.sub(tds.reconstructEncoder);
-                double err = error.norm2();
-
-                //debug
-                if(Double.isNaN(err)) {
-                    _logger.info("Examining row.." + tds.row.toString());
-                    _logger.info("pos_hid_probs..." + ds.pos_hid_probs.toString());
-                    _logger.info("poshidstates..." + ds.pos_hid_states.toString());
-                    _logger.info("neg_hid_probs.. " + ds.neg_hid_probs.toString());
-                    _logger.info("error.. " + error.toString());
-                }
-                else {
-                    err_sum += err;
-                }
-
             }
 
-            // reset 'Winj_inc' matrix
-            for(int rating = 1; rating <= 5; rating++ ) {
+            update_weight();
+
+            for(int rating = 1; rating <= 5; rating++) {
                 ds.Wijk_inc.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+                ds.visible_b_inc.put(rating, DoubleMatrix.zeros(1, ds.num_visible));
+
+                ds.pos_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+                ds.neg_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+
             }
 
-            _logger.info("Epoch " + epoch + " error " + err_sum + "\n");
+            ds.hidden_b_inc = DoubleMatrix.zeros(1, ds.num_hidden);
 
         } // end of epoch
 
@@ -376,17 +358,19 @@ public class CollaborativeFilteringRBM {
 
         List<Integer> userIndex = Utils.getSequence(0, ds.user_num - 1);
 
-        //train for 'maxepoch' epochs
+        //train for 'epoch' epochs
 
-        double err_sum = 0;
+        double err_sq_sum = 0;
+        double err_abs_sum = 0;
+
         int count = 0;
 
         // randomize the visiting order and then treat
         // each training case separately..
 
-        for (int r = 0; r < userIndex.size(); r++) {
+        for (Integer user : userIndex) {
 
-            boolean prepared = prepare(ds.matrix_train, userIndex.get(r));
+            boolean prepared = prepare(ds.matrix_train, user);
 
             if (!prepared) {
                 continue;
@@ -394,7 +378,7 @@ public class CollaborativeFilteringRBM {
 
             positive_phase(ds, tds);
 
-            prepared = prepare(ds.matrix_test, userIndex.get(r));
+            prepared = prepare(ds.matrix_test, user);
 
             if (!prepared) {
                 continue;
@@ -405,36 +389,31 @@ public class CollaborativeFilteringRBM {
             //the end for each user
             int[] true_list = tds.oneHotEncoder.columnArgmaxs();
             int[] predict_list = tds.reconstructEncoder.columnArgmaxs();
-            double err_sub = 0;
+
+            double err_sq = 0;
+            double err_abs = 0;
+
             for (int i = 0; i < true_list.length; i++) {
                 if (true_list[i] == 0) {
                     continue;
                 }
                 double err = true_list[i] - predict_list[i];
-                err_sub += err *  err;
+                err_sq += err * err;
+                err_abs += Math.abs(err);
                 count++;
             }
 
-            //debug
-            if(Double.isNaN(err_sub)) {
-                _logger.info("Examining row.." + tds.row.toString());
-                _logger.info("pos_hid_probs..." + ds.pos_hid_probs.toString());
-                _logger.info("poshidstates..." + ds.pos_hid_states.toString());
-                _logger.info("neg_hid_probs.. " + ds.neg_hid_probs.toString());
-//                _logger.info("error.. " + error.toString());
-            }
-            else {
-                err_sum += err_sub;
-            }
+            err_sq_sum += err_sq;
+            err_abs_sum += err_abs;
+
         }
-        System.out.println("RMSE:" + Math.sqrt(err_sum / count));
+        System.out.println("rmse: " + Math.sqrt(err_sq_sum / count) + ", mse: " + err_abs_sum / count);
 
     }
 
     /**
      * Reads the file with the user-item ratings. The expected format is
      * 'user'<tab/>'item'<tab/>'rating
-     * @param file
      */
     public void loadRatings(String file, double validation_split) {
 
@@ -444,9 +423,7 @@ public class CollaborativeFilteringRBM {
             BigFile f = new BigFile(file);
             HashSet<String> items = new HashSet<>(5000);
 
-            Iterator<String> iterator = f.iterator();
-            while (iterator.hasNext()) {
-                String line = iterator.next();
+            for (String line : f) {
                 String[] splits = line.split("\t");
 
                 String userId = splits[0];
@@ -454,7 +431,7 @@ public class CollaborativeFilteringRBM {
                 double rating = Double.parseDouble(splits[2]);
 
                 List<Rating> ratingsList = ratingsMap.get(userId);
-                if(ratingsList == null) {
+                if (ratingsList == null) {
                     ratingsList = new ArrayList<>();
                 }
 
@@ -558,6 +535,7 @@ public class CollaborativeFilteringRBM {
             //get the contribution from the active visible units
             DoubleMatrix product = rowMatrix.mmul(wij);
             poshidprobs.addi(product);
+
         }
 
         //take the logistic, to form probabilities for the hidden units
