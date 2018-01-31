@@ -23,12 +23,12 @@ public class TestCollaborativeFilteringRBM {
     public static void main(String[] args) throws IOException {
 
         _logger.info("Loading data..");
-        HyperParameter hp = new HyperParameter(0.1, 0.2, 0.1, 0.002, 0.1, 20.0);
+        HyperParameter hp = new HyperParameter(0.1, 0.2, 0.1, 0.002, 0.9, 20.0);
 
         RbmOptions ro = new RbmOptions();
         ro.cdk = 5;
         ro.epoch = 10;
-        ro.avglast = 5;
+        ro.evaluateEvery = 2;
         ro.num_hidden = 100;
         ro.debug = false;
 
@@ -36,8 +36,6 @@ public class TestCollaborativeFilteringRBM {
         CollaborativeFilteringRBM rbmCF = new CollaborativeFilteringRBM(hp,ro);
         rbmCF.loadRatings("./data/" + "u.data",0.2);
         rbmCF.fit();
-        System.out.println("evaluating ......");
-        rbmCF.evaluate();
 
     }
 

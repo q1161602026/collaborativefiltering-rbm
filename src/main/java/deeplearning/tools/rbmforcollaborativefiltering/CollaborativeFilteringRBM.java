@@ -233,7 +233,7 @@ public class CollaborativeFilteringRBM {
 
     }
 
-    private void GibbsSampler(DataStructure ds, TempDataStructure tds, int cdk, boolean trainable) {
+    private void GibbsSampler(DataStructure ds, TempDataStructure tds, int cdk) {
 
         for (int i = 0; i < cdk; i++) {
 
@@ -242,19 +242,17 @@ public class CollaborativeFilteringRBM {
             negative_phase(ds, tds);
         }
 
-        if (trainable){
-            // pos_prods = data' * ds.pos_hid_probs
-            for(int rating = 1; rating <= 5; rating++) {
-                DoubleMatrix pos_prod = ds.pos_prods.get(rating);
-                DoubleMatrix vRow = tds.oneHotEncoder.getRow(rating - 1);
-                pos_prod.addi(vRow.transpose().mmul(ds.pos_hid_probs));
-                ds.pos_prods.put(rating, pos_prod);
+        // pos_prods = data' * ds.pos_hid_probs
+        for(int rating = 1; rating <= 5; rating++) {
+            DoubleMatrix pos_prod = ds.pos_prods.get(rating);
+            DoubleMatrix vRow = tds.oneHotEncoder.getRow(rating - 1);
+            pos_prod.addi(vRow.transpose().mmul(ds.pos_hid_probs));
+            ds.pos_prods.put(rating, pos_prod);
 
-                DoubleMatrix neg_prod = ds.neg_prods.get(rating);
-                DoubleMatrix revRow = tds.reconstructEncoder.getRow(rating - 1);
-                neg_prod.addi(revRow.transpose().mmul(ds.neg_hid_probs));
-                ds.neg_prods.put(rating, neg_prod);
-            }
+            DoubleMatrix neg_prod = ds.neg_prods.get(rating);
+            DoubleMatrix revRow = tds.reconstructEncoder.getRow(rating - 1);
+            neg_prod.addi(revRow.transpose().mmul(ds.neg_hid_probs));
+            ds.neg_prods.put(rating, neg_prod);
         }
 
     }
@@ -332,7 +330,7 @@ public class CollaborativeFilteringRBM {
                     continue;
                 }
 
-                GibbsSampler(ds, tds, ro.cdk, true);
+                GibbsSampler(ds, tds, ro.cdk);
 
                 //the end for each user
             }
@@ -343,13 +341,16 @@ public class CollaborativeFilteringRBM {
                 ds.Wijk_inc.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
                 ds.visible_b_inc.put(rating, DoubleMatrix.zeros(1, ds.num_visible));
 
-                ds.pos_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
-                ds.neg_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+//                ds.pos_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
+//                ds.neg_prods.put(rating, DoubleMatrix.zeros(ds.num_visible, ds.num_hidden));
 
             }
 
             ds.hidden_b_inc = DoubleMatrix.zeros(1, ds.num_hidden);
 
+            if (epoch % ro.evaluateEvery == 0) {
+                evaluate();
+            }
         } // end of epoch
 
     }
@@ -408,7 +409,6 @@ public class CollaborativeFilteringRBM {
 
         }
         System.out.println("rmse: " + Math.sqrt(err_sq_sum / count) + ", mse: " + err_abs_sum / count);
-
     }
 
     /**

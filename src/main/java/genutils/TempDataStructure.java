@@ -15,6 +15,4 @@ public class TempDataStructure {
 
     public DoubleMatrix reconstructEncoder;
 
-
-
 }
