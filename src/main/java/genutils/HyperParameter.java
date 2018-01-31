@@ -5,15 +5,15 @@ package genutils;
  */
 public class HyperParameter {
     public HyperParameter(double lr_w, double lr_visible_b, double lr_hidden_b,
-                          double reg_w, double momentumInitial, double momentumFinal,
+                          double reg_w, double momentum_coefficient_initial, double momentum_coefficient_final,
                           double modifier) {
 
         this.lr_w = lr_w;
         this.lr_visible_b = lr_visible_b;
         this.lr_hidden_b = lr_hidden_b;
         this.reg_w = reg_w;
-        this.momentumInitial = momentumInitial;
-        this.momentumFinal = momentumFinal;
+        this.momentum_coefficient_initial = momentum_coefficient_initial;
+        this.momentum_coefficient_final = momentum_coefficient_final;
         this.modifier = modifier;
 
     }
@@ -22,7 +22,7 @@ public class HyperParameter {
     public double lr_visible_b;
     public double lr_hidden_b;
     public double reg_w;
-    public double momentumInitial;
-    public double momentumFinal;
+    public double momentum_coefficient_initial;
+    public double momentum_coefficient_final;
     public double modifier;
 }

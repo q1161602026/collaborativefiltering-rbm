@@ -20,7 +20,7 @@ public class RbmOptions {
     public int batchsize = 500;
     public boolean verbose = true;
     public boolean anneal = false;    
-    public int numhid = 500;
+    public int num_hidden = 500;
     public boolean debug = false;
     public boolean restart = true;
     public int createSnapshotEvery = 100;

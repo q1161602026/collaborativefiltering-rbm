@@ -18,28 +18,29 @@ import java.util.logging.Logger;
  * @author thanos
  */
 public class TestCollaborativeFilteringRBM {
-    
-    private static final Logger _logger = Logger.getLogger(TestCollaborativeFilteringRBM.class.getName());    
-    
+
+    private static final Logger _logger = Logger.getLogger(TestCollaborativeFilteringRBM.class.getName());
+
     public static void main(String[] args) throws IOException {
-        
-        
+
         _logger.info("Loading data..");
         HyperParameter hp = new HyperParameter(0.1, 0.2, 0.1, 0.002, 0.5, 0.9, 20.0);
 
         RbmOptions ro = new RbmOptions();
-        ro.maxepoch = 10;
+        ro.maxepoch = 3;
         ro.avglast = 5;
-        ro.numhid = 100;
+        ro.num_hidden = 100;
         ro.debug = false;
-        
+
         //CollaborativeFilteringLayer fit = CollaborativeFilteringRBM.fit(data, ro);
         CollaborativeFilteringRBM rbmCF = new CollaborativeFilteringRBM(hp,ro);
-        rbmCF.loadRatings("./data/" + "u.data");
-        rbmCF.fit(ro);
-        
+        rbmCF.loadRatings("./data/" + "u.data",0.2);
+        rbmCF.fit();
+        System.out.println("evaluating ......");
+        rbmCF.evaluate();
+
         System.out.println("Mean prediction = " + rbmCF.predict("166", "346", PredictionType.MEAN));
-       
+
     }
-    
+
 }
