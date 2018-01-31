@@ -441,7 +441,7 @@ public class CollaborativeFilteringRBM {
             }
 
             System.out.println("Found " + ratingsMap.keySet().size() + " users " +
-                    " and " + items.size() + " items..");
+                    "and " + items.size() + " items..");
 
             // initialize all with zeros
             ds.matrix = DoubleMatrix.zeros(ratingsMap.keySet().size(), items.size());
