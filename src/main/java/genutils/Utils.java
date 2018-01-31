@@ -89,8 +89,8 @@ public class Utils {
      */
     public static DoubleMatrix getOneHotEncoder(DoubleMatrix row, int k) {
 
-        //DoubleMatrix mask = DoubleMatrix.zeros(5, row.getColumns());
         DoubleMatrix mask = DoubleMatrix.zeros(k, row.getColumns());
+
         for(int col = 0; col < row.getColumns(); col++) {
 
             double value  = (int) row.get(0, col);
@@ -129,6 +129,7 @@ public class Utils {
         }
 
         return binaryMatrix;
+
     }
 
 
@@ -324,7 +325,7 @@ public class Utils {
 
     public static List<Integer> getSequence(int index1, int index2) {
 
-        List<Integer> response = new ArrayList<Integer>();
+        List<Integer> response = new ArrayList<>();
         if(index1 < index2) {
             for(int item = index1; item <= index2; item++ )
                 response.add(item);
